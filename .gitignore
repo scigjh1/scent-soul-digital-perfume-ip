@@ -1,0 +1,24 @@
+# dependencies
+node_modules/
+
+# local env
+.env
+.env.*
+!.env.example
+scripts/*.tmp
+scripts/device_code.json
+
+# runtime logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# archives
+*.zip

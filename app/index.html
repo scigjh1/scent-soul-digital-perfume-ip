@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ScentSoul 香水数字灵魂</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <canvas id="scentCanvas" aria-label="香水数字灵魂动态场景"></canvas>
+
+    <main class="shell">
+      <section class="workspace" aria-label="ScentSoul perfume soul app">
+        <div class="left-rail">
+          <div class="brand-block">
+            <div class="brand-mark">SS</div>
+            <div>
+              <p class="eyebrow">香水数字 IP 系统</p>
+              <h1>ScentSoul</h1>
+            </div>
+          </div>
+
+          <div class="scan-box">
+            <div class="qr-grid" aria-hidden="true">
+              <span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span>
+              <i></i>
+            </div>
+            <div class="scan-copy">
+              <strong>瓶身激活</strong>
+              <span id="bottlePreview">SS-203915</span>
+            </div>
+          </div>
+
+          <form id="scentForm" class="control-form">
+            <label>
+              <span>选择香水</span>
+              <select id="perfumeId" name="perfumeId">
+                <option value="nile">尼罗河花园｜柑橘水生绿意</option>
+                <option value="bloom">绯雾花庭｜花香粉感麝香</option>
+                <option value="amber">琥珀书房｜木质琥珀皮革</option>
+                <option value="raintea">雨后茶室｜茶香绿叶雨水</option>
+              </select>
+            </label>
+
+            <label>
+              <span>收藏者昵称</span>
+              <input id="ownerName" name="ownerName" value="郭珈豪" maxlength="12" />
+            </label>
+
+            <label>
+              <span>瓶身编号</span>
+              <div class="inline-control">
+                <input id="bottleId" name="bottleId" value="SS-203915" maxlength="12" />
+                <button class="icon-button" type="button" id="randomBottle" title="生成新编号">↻</button>
+              </div>
+            </label>
+
+            <fieldset>
+              <legend>今天的气味情绪</legend>
+              <div class="chip-row" id="moodChips">
+                <button type="button" data-mood="清透" class="active">清透</button>
+                <button type="button" data-mood="明亮">明亮</button>
+                <button type="button" data-mood="潮湿">潮湿</button>
+                <button type="button" data-mood="温柔">温柔</button>
+                <button type="button" data-mood="神秘">神秘</button>
+                <button type="button" data-mood="顽皮">顽皮</button>
+              </div>
+            </fieldset>
+
+            <button class="primary-button" id="generateBtn" type="submit">
+              <span>生成专属数字灵魂</span>
+              <small>LLM / 本地生成器</small>
+            </button>
+          </form>
+        </div>
+
+        <section class="stage">
+          <div class="stage-top">
+            <div>
+              <p class="eyebrow">Digital Scent Soul</p>
+              <h2 id="ipName">河光青芒</h2>
+              <p id="ipLine">靠近一点，这瓶香气正在醒来。</p>
+            </div>
+            <div class="source-pill" id="sourcePill">LOCAL</div>
+          </div>
+
+          <div class="hero-readout">
+            <div>
+              <span>香水</span>
+              <strong id="perfumeName">尼罗河花园</strong>
+            </div>
+            <div>
+              <span>版本</span>
+              <strong id="editionName">河光版</strong>
+            </div>
+            <div>
+              <span>稀有度</span>
+              <strong id="rarity">Rare</strong>
+            </div>
+            <div>
+              <span>BPM</span>
+              <strong id="bpm">94</strong>
+            </div>
+          </div>
+
+          <div class="story-panel">
+            <p id="openingStory">郭珈豪唤醒编号 SS-203915 时，青芒果先从瓶口升起，莲花慢慢铺成它的影子。</p>
+            <p id="ritualStory">它记住了你选择的“清透”，所以这次的动画会更偏向水流，旋律也会留下一个很轻的回声。</p>
+          </div>
+
+          <div class="visual-controls">
+            <button id="musicToggle" class="secondary-button" type="button">
+              <span id="musicIcon">▶</span>
+              <span>播放香气音乐</span>
+            </button>
+            <button id="copyCard" class="secondary-button" type="button">
+              <span>□</span>
+              <span>复制收藏卡</span>
+            </button>
+            <button id="savePng" class="secondary-button" type="button">
+              <span>⬇</span>
+              <span>保存动态画面</span>
+            </button>
+          </div>
+        </section>
+
+        <aside class="right-rail">
+          <section class="module">
+            <div class="module-title">
+              <span>香调映射</span>
+              <small id="familyName">柑橘水生绿意调</small>
+            </div>
+            <div class="note-stack" id="notes"></div>
+          </section>
+
+          <section class="module">
+            <div class="module-title">
+              <span>视觉参数</span>
+              <small>由模型生成</small>
+            </div>
+            <div class="meter-list">
+              <label>Flow <meter id="flowMeter" min="0" max="1.8" value="0.8"></meter></label>
+              <label>Bloom <meter id="bloomMeter" min="0" max="1.5" value="0.6"></meter></label>
+              <label>Spark <meter id="sparkMeter" min="0" max="1.2" value="0.4"></meter></label>
+              <label>Density <meter id="densityMeter" min="0" max="1" value="0.7"></meter></label>
+            </div>
+          </section>
+
+          <section class="module">
+            <div class="module-title">
+              <span>收藏卡</span>
+              <small id="cardRarity">Rare</small>
+            </div>
+            <div class="soul-card" id="soulCard">
+              <div class="card-glow"></div>
+              <p id="shareTitle">尼罗河花园的河光青芒</p>
+              <strong id="shareSubtitle">一瓶香水，一段只属于你的动态气味记忆。</strong>
+              <div id="tags" class="tag-list"></div>
+            </div>
+          </section>
+
+          <section class="module ops-module">
+            <div class="module-title">
+              <span>运营看板</span>
+              <small>Demo metrics</small>
+            </div>
+            <div class="ops-grid">
+              <div><b id="scanCount">1,284</b><span>扫码激活</span></div>
+              <div><b id="shareRate">32%</b><span>分享率</span></div>
+              <div><b id="unlockRate">18%</b><span>二次唤醒</span></div>
+              <div><b id="favMood">清透</b><span>偏好情绪</span></div>
+            </div>
+          </section>
+        </aside>
+      </section>
+    </main>
+
+    <div class="toast" id="toast">已复制收藏卡</div>
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>
