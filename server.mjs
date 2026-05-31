@@ -8,7 +8,62 @@ import crypto from "node:crypto";
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const appDir = join(__dirname, "app");
 const port = Number(process.env.PORT || 4177);
-const model = process.env.OPENAI_MODEL || "gpt-5.5";
+const provider = (process.env.LLM_PROVIDER || process.env.MODEL_PROVIDER || "").toLowerCase();
+
+const PROVIDERS = {
+  deepseek: {
+    baseURL: "https://api.deepseek.com",
+    model: "deepseek-chat",
+    apiKey: process.env.DEEPSEEK_API_KEY
+  },
+  qwen: {
+    baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    model: "qwen-plus",
+    apiKey: process.env.DASHSCOPE_API_KEY || process.env.QWEN_API_KEY
+  },
+  dashscope: {
+    baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    model: "qwen-plus",
+    apiKey: process.env.DASHSCOPE_API_KEY || process.env.QWEN_API_KEY
+  },
+  kimi: {
+    baseURL: "https://api.moonshot.cn/v1",
+    model: "moonshot-v1-8k",
+    apiKey: process.env.MOONSHOT_API_KEY || process.env.KIMI_API_KEY
+  },
+  moonshot: {
+    baseURL: "https://api.moonshot.cn/v1",
+    model: "moonshot-v1-8k",
+    apiKey: process.env.MOONSHOT_API_KEY || process.env.KIMI_API_KEY
+  },
+  zhipu: {
+    baseURL: "https://open.bigmodel.cn/api/paas/v4",
+    model: "glm-4-flash",
+    apiKey: process.env.ZHIPU_API_KEY
+  },
+  openai: {
+    baseURL: "https://api.openai.com/v1",
+    model: "gpt-4.1-mini",
+    apiKey: process.env.OPENAI_API_KEY
+  }
+};
+
+function inferProvider() {
+  if (provider) return provider;
+  if (process.env.LLM_API_KEY && process.env.LLM_BASE_URL) return "custom";
+  if (process.env.DEEPSEEK_API_KEY) return "deepseek";
+  if (process.env.DASHSCOPE_API_KEY || process.env.QWEN_API_KEY) return "qwen";
+  if (process.env.MOONSHOT_API_KEY || process.env.KIMI_API_KEY) return "kimi";
+  if (process.env.ZHIPU_API_KEY) return "zhipu";
+  if (process.env.OPENAI_API_KEY) return "openai";
+  return "local";
+}
+
+const activeProvider = inferProvider();
+const providerDefaults = PROVIDERS[activeProvider] || PROVIDERS.deepseek;
+const llmBaseURL = (process.env.LLM_BASE_URL || providerDefaults.baseURL).replace(/\/+$/, "");
+const llmApiKey = process.env.LLM_API_KEY || providerDefaults.apiKey || "";
+const model = process.env.LLM_MODEL || process.env.OPENAI_MODEL || providerDefaults.model;
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -353,6 +408,12 @@ ${JSON.stringify({ ...payload, perfume }, null, 2)}
 }
 
 function extractText(data) {
+  if (Array.isArray(data.choices)) {
+    return data.choices
+      .map((choice) => choice.message?.content || choice.text || "")
+      .filter(Boolean)
+      .join("\n");
+  }
   if (typeof data.output_text === "string") return data.output_text;
   if (Array.isArray(data.output)) {
     return data.output.flatMap((item) => {
@@ -380,22 +441,32 @@ function parseLooseJson(text) {
   }
 }
 
-async function openAIProfile(payload) {
-  if (!process.env.OPENAI_API_KEY) {
-    return { profile: localProfile(payload), warning: "未设置 OPENAI_API_KEY，已使用本地生成器。" };
+async function llmProfile(payload) {
+  if (!llmApiKey || activeProvider === "local") {
+    return { profile: localProfile(payload), warning: "未设置国内模型 API Key，已使用本地生成器。" };
   }
 
   try {
-    const response = await fetch("https://api.openai.com/v1/responses", {
+    const response = await fetch(`${llmBaseURL}/chat/completions`, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Authorization": `Bearer ${llmApiKey}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
         model,
-        input: buildPrompt(payload),
-        max_output_tokens: 1800
+        messages: [
+          {
+            role: "system",
+            content: "你是严谨的产品创意生成器，只返回合法 JSON，不返回 Markdown。"
+          },
+          {
+            role: "user",
+            content: buildPrompt(payload)
+          }
+        ],
+        temperature: 0.85,
+        max_tokens: 1800
       })
     });
 
@@ -403,16 +474,16 @@ async function openAIProfile(payload) {
     if (!response.ok) {
       return {
         profile: localProfile(payload),
-        warning: `OpenAI 调用失败，已切换本地生成器：${data.error?.message || response.status}`
+        warning: `${activeProvider} 调用失败，已切换本地生成器：${data.error?.message || response.status}`
       };
     }
 
     const raw = parseLooseJson(extractText(data));
-    return { profile: normalizeProfile(raw, payload, "openai") };
+    return { profile: normalizeProfile(raw, payload, activeProvider) };
   } catch (error) {
     return {
       profile: localProfile(payload),
-      warning: `OpenAI 调用失败，已切换本地生成器：${error.message}`
+      warning: `${activeProvider} 调用失败，已切换本地生成器：${error.message}`
     };
   }
 }
@@ -439,15 +510,17 @@ const server = createServer(async (req, res) => {
   try {
     if (req.method === "POST" && req.url === "/api/generate") {
       const payload = await readBody(req);
-      const result = await openAIProfile(payload);
+      const result = await llmProfile(payload);
       json(res, 200, result);
       return;
     }
     if (req.method === "GET" && req.url === "/api/health") {
       json(res, 200, {
         ok: true,
+        provider: activeProvider,
         model,
-        openai: Boolean(process.env.OPENAI_API_KEY),
+        llm: Boolean(llmApiKey),
+        localFallback: true,
         perfumes: Object.keys(PERFUMES)
       });
       return;
@@ -460,5 +533,5 @@ const server = createServer(async (req, res) => {
 
 server.listen(port, () => {
   console.log(`ScentSoul running at http://localhost:${port}`);
-  console.log(process.env.OPENAI_API_KEY ? `OpenAI model: ${model}` : "OPENAI_API_KEY not set; local generator fallback enabled.");
+  console.log(llmApiKey ? `LLM provider: ${activeProvider}; model: ${model}` : "LLM_API_KEY not set; local generator fallback enabled.");
 });

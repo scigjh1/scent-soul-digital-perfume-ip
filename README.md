@@ -53,13 +53,14 @@ http://localhost:4177
 
 这种模式会使用本地生成器，适合快速演示。
 
-### 2. 接入 OpenAI 大模型
+### 2. 接入国内大模型
 
 PowerShell：
 
 ```powershell
-$env:OPENAI_API_KEY="你的 API Key"
-$env:OPENAI_MODEL="gpt-5.5"
+$env:LLM_PROVIDER="deepseek"
+$env:DEEPSEEK_API_KEY="你的 DeepSeek API Key"
+$env:LLM_MODEL="deepseek-chat"
 npm start
 ```
 
@@ -69,7 +70,23 @@ npm start
 http://localhost:4177
 ```
 
-注意：不要把 API Key 写进前端代码。这个项目通过 `server.mjs` 调用大模型，前端只请求 `/api/generate`。
+也支持通义千问、Kimi、智谱和自定义 OpenAI-compatible 服务：
+
+```powershell
+# 通义千问
+$env:LLM_PROVIDER="qwen"
+$env:DASHSCOPE_API_KEY="你的 DashScope API Key"
+$env:LLM_MODEL="qwen-plus"
+npm start
+
+# Kimi
+$env:LLM_PROVIDER="kimi"
+$env:MOONSHOT_API_KEY="你的 Moonshot API Key"
+$env:LLM_MODEL="moonshot-v1-8k"
+npm start
+```
+
+注意：不要把 API Key 写进前端代码。这个项目通过 `server.mjs` 调用大模型，前端只请求 `/api/generate`。没有 Key 或模型调用失败时会自动切换本地生成器。
 
 ## 文件结构
 
