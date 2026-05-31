@@ -548,6 +548,54 @@ meter {
   font-size: 12px;
 }
 
+.journey-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.journey-list li {
+  display: grid;
+  grid-template-columns: 46px 1fr;
+  gap: 8px;
+  align-items: start;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.045);
+  padding: 9px;
+}
+
+.journey-list b {
+  color: var(--accent);
+  font-size: 13px;
+}
+
+.journey-list span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.ops-plan {
+  display: grid;
+  gap: 9px;
+}
+
+.ops-plan p {
+  margin: 0;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.045);
+  padding: 10px;
+  color: rgba(248, 244, 233, 0.78);
+  line-height: 1.55;
+  font-size: 13px;
+}
+
+.ops-plan b {
+  color: var(--accent2);
+}
+
 .toast {
   position: fixed;
   left: 50%;

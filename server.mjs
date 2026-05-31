@@ -105,6 +105,7 @@ function normalizeProfile(raw, payload, source = "openai") {
   const music = raw.music || {};
   const story = raw.story || {};
   const share = raw.share || {};
+  const ops = raw.ops || {};
   const traits = Array.isArray(raw.traits) ? raw.traits : [];
   const colors = Array.isArray(scene.palette) && scene.palette.length >= 4 ? scene.palette : perfume.palette;
 
@@ -160,6 +161,18 @@ function normalizeProfile(raw, payload, source = "openai") {
       title: share.title || `${perfume.name} #${payload.bottleId || "000"} 的数字灵魂`,
       subtitle: share.subtitle || "一瓶香水，一段只属于你的动态气味记忆。",
       hashtags: Array.isArray(share.hashtags) && share.hashtags.length ? share.hashtags.slice(0, 5) : ["#香水数字IP", "#ScentSoul", "#气味人格"]
+    },
+    ops: {
+      segment: ops.segment || pick(["清透探索型用户", "情绪收藏型用户", "社交分享型用户", "夜间仪式型用户"], seed + "segment"),
+      campaign: ops.campaign || pick(["新品限量编号活动", "晒出我的香气灵魂", "7日唤醒隐藏卡面", "天气联动香气变奏"], seed + "campaign"),
+      conversionGoal: ops.conversionGoal || "提升扫码激活率、收藏卡分享率和二次唤醒率。",
+      nextAction: ops.nextAction || `向偏好“${payload.mood || "清透"}”的用户推荐同系列香水或小样。`,
+      metrics: {
+        activationRate: ops.metrics?.activationRate || `${Math.round(hashNumber(seed + "activation", 42, 76))}%`,
+        shareRate: ops.metrics?.shareRate || `${Math.round(hashNumber(seed + "shareRate", 18, 46))}%`,
+        recallRate: ops.metrics?.recallRate || `${Math.round(hashNumber(seed + "recall", 9, 32))}%`,
+        repurchaseIntent: ops.metrics?.repurchaseIntent || `${Math.round(hashNumber(seed + "repurchase", 6, 22))}%`
+      }
     }
   };
 }
@@ -250,6 +263,18 @@ function localProfile(payload) {
       title: `${perfume.name} 的 ${pick(ipNames[id], seed + "name2")}`,
       subtitle: `这不是赠品，是编号 ${payload.bottleId || "SS-000000"} 的香气数字灵魂。`,
       hashtags: ["#ScentSoul", "#香水数字IP", `#${perfume.name.replace(/\s+/g, "")}`]
+    },
+    ops: {
+      segment: pick(["清透探索型用户", "情绪收藏型用户", "社交分享型用户", "夜间仪式型用户"], seed + "segment"),
+      campaign: pick(["新品限量编号活动", "晒出我的香气灵魂", "7日唤醒隐藏卡面", "天气联动香气变奏"], seed + "campaign"),
+      conversionGoal: "提升扫码激活率、收藏卡分享率和二次唤醒率。",
+      nextAction: `向偏好“${payload.mood || "清透"}”的用户推荐同系列香水、小样或节日礼盒。`,
+      metrics: {
+        activationRate: `${Math.round(hashNumber(seed + "activation", 42, 76))}%`,
+        shareRate: `${Math.round(hashNumber(seed + "shareRate", 18, 46))}%`,
+        recallRate: `${Math.round(hashNumber(seed + "recall", 9, 32))}%`,
+        repurchaseIntent: `${Math.round(hashNumber(seed + "repurchase", 6, 22))}%`
+      }
     }
   }, payload, "local");
 }
@@ -304,6 +329,18 @@ ${JSON.stringify({ ...payload, perfume }, null, 2)}
     "title": "分享卡标题",
     "subtitle": "分享卡副标题",
     "hashtags": ["3-5个话题"]
+  },
+  "ops": {
+    "segment": "用户分层名称，6-12个中文",
+    "campaign": "运营活动名称，8-16个中文",
+    "conversionGoal": "本次运营目标，20-40个中文",
+    "nextAction": "下一步运营动作，20-45个中文",
+    "metrics": {
+      "activationRate": "如 58%",
+      "shareRate": "如 31%",
+      "recallRate": "如 17%",
+      "repurchaseIntent": "如 12%"
+    }
   }
 }
 

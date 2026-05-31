@@ -176,6 +176,18 @@ function localProfile(payload) {
       title: `${perfume.name} 的 ${pick(names[id], seed + "name2")}`,
       subtitle: `这不是赠品，是编号 ${payload.bottleId} 的香气数字灵魂。`,
       hashtags: ["#ScentSoul", "#香水数字IP", `#${perfume.name.replace(/\s+/g, "")}`]
+    },
+    ops: {
+      segment: pick(["清透探索型用户", "情绪收藏型用户", "社交分享型用户", "夜间仪式型用户"], seed + "segment"),
+      campaign: pick(["新品限量编号活动", "晒出我的香气灵魂", "7日唤醒隐藏卡面", "天气联动香气变奏"], seed + "campaign"),
+      conversionGoal: "提升扫码激活率、收藏卡分享率和二次唤醒率。",
+      nextAction: `向偏好“${payload.mood}”的用户推荐同系列香水、小样或节日礼盒。`,
+      metrics: {
+        activationRate: `${Math.round(hashNumber(seed + "activation", 42, 76))}%`,
+        shareRate: `${Math.round(hashNumber(seed + "shareRate", 18, 46))}%`,
+        recallRate: `${Math.round(hashNumber(seed + "recall", 9, 32))}%`,
+        repurchaseIntent: `${Math.round(hashNumber(seed + "repurchase", 6, 22))}%`
+      }
     }
   };
 }
@@ -415,6 +427,18 @@ function normalizeProfile(profile) {
       brightness: clamp(profile.music?.brightness, 0, 1),
       warmth: clamp(profile.music?.warmth, 0, 1),
       pulse: clamp(profile.music?.pulse, 0, 1)
+    },
+    ops: {
+      segment: profile.ops?.segment || "清透探索型用户",
+      campaign: profile.ops?.campaign || "晒出我的香气灵魂",
+      conversionGoal: profile.ops?.conversionGoal || "提升扫码激活率、收藏卡分享率和二次唤醒率。",
+      nextAction: profile.ops?.nextAction || `向偏好“${state.mood}”的用户推荐同系列香水、小样或节日礼盒。`,
+      metrics: {
+        activationRate: profile.ops?.metrics?.activationRate || "58%",
+        shareRate: profile.ops?.metrics?.shareRate || "31%",
+        recallRate: profile.ops?.metrics?.recallRate || "17%",
+        repurchaseIntent: profile.ops?.metrics?.repurchaseIntent || "12%"
+      }
     }
   };
 }
@@ -456,9 +480,13 @@ function renderProfile(profile, warning = "") {
   $("sparkMeter").value = p.scene.motion.sparkle;
   $("densityMeter").value = p.scene.motion.density;
   $("scanCount").textContent = Math.round(hashNumber(p.bottle.id + "scan", 900, 9800)).toLocaleString();
-  $("shareRate").textContent = `${Math.round(hashNumber(p.ip.name + "share", 18, 48))}%`;
-  $("unlockRate").textContent = `${Math.round(hashNumber(p.ip.archetype + "unlock", 8, 36))}%`;
+  $("shareRate").textContent = p.ops.metrics.shareRate;
+  $("unlockRate").textContent = p.ops.metrics.recallRate;
   $("favMood").textContent = p.music.mood || state.mood;
+  $("opsSegment").textContent = p.ops.segment;
+  $("opsCampaign").textContent = p.ops.campaign;
+  $("opsGoal").textContent = p.ops.conversionGoal;
+  $("opsNextAction").textContent = p.ops.nextAction;
 
   if (isPlaying) restartMusic();
   if (warning) showToast(warning);
@@ -624,6 +652,24 @@ function copyCard() {
   );
 }
 
+function copyOpsPlan() {
+  const p = state.profile || localProfile(currentPayload());
+  const text = [
+    `ScentSoul 产品运营方案`,
+    `香水：${p.perfume.name}`,
+    `目标用户：${p.ops.segment}`,
+    `活动主题：${p.ops.campaign}`,
+    `运营目标：${p.ops.conversionGoal}`,
+    `下一步动作：${p.ops.nextAction}`,
+    `核心指标：激活率 ${p.ops.metrics.activationRate} / 分享率 ${p.ops.metrics.shareRate} / 二次唤醒 ${p.ops.metrics.recallRate} / 复购意向 ${p.ops.metrics.repurchaseIntent}`,
+    `产品闭环：购买 - 扫码激活 - 数字 IP 体验 - 收藏卡分享 - 二次唤醒 - 复购推荐`
+  ].join("\n");
+  navigator.clipboard?.writeText(text).then(
+    () => showToast("运营方案已复制"),
+    () => showToast("浏览器不允许复制，可以手动选中文案")
+  );
+}
+
 function savePng() {
   const link = document.createElement("a");
   link.download = `${state.profile?.ip?.name || "scent-soul"}.png`;
@@ -672,6 +718,7 @@ function bindEvents() {
   });
 
   $("copyCard").addEventListener("click", copyCard);
+  $("copyOps").addEventListener("click", copyOpsPlan);
   $("savePng").addEventListener("click", savePng);
   window.addEventListener("resize", resizeCanvas);
 }
