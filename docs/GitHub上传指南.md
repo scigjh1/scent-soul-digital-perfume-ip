@@ -2,13 +2,13 @@
 
 ## 先注意安全
 
-不要把 Google 密码、GitHub 密码、OpenAI API Key 写进仓库，也不要发到聊天里。
+不要把 Google 密码、GitHub 密码、DeepSeek/通义/Kimi/智谱等模型 API Key 写进仓库，也不要发到聊天里。
 
 这个项目已经做了安全处理：
 
 - `.env` 会被 `.gitignore` 忽略。
 - 仓库只保留 `.env.example`。
-- OpenAI Key 只应该放在本机环境变量里。
+- 模型 API Key 只应该放在本机或服务器环境变量里。
 
 ## 推荐仓库名
 

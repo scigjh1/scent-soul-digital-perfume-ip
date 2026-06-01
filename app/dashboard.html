@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ScentSoul 产品数据看板</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./dashboard.css" />
+  </head>
+  <body class="dashboard-body">
+    <main class="dashboard-shell">
+      <header class="dashboard-header">
+        <div>
+          <p class="eyebrow">ScentSoul Ops Room</p>
+          <h1>产品数据看板</h1>
+          <p>看朋友体验后的生成、复制、反馈和购买兴趣，直接服务产品迭代。</p>
+        </div>
+        <div class="dashboard-actions">
+          <input id="adminToken" type="password" placeholder="管理口令" />
+          <button id="loadMetrics" class="secondary-button" type="button">刷新数据</button>
+          <a id="exportCsv" class="secondary-button" href="/api/export/events.csv">导出 CSV</a>
+        </div>
+      </header>
+
+      <section class="dashboard-grid">
+        <article class="metric-card">
+          <span>总事件</span>
+          <strong id="totalEvents">0</strong>
+        </article>
+        <article class="metric-card">
+          <span>独立访客</span>
+          <strong id="uniqueSessions">0</strong>
+        </article>
+        <article class="metric-card">
+          <span>平均评分</span>
+          <strong id="averageScore">0</strong>
+        </article>
+        <article class="metric-card">
+          <span>购买兴趣</span>
+          <strong id="purchaseIntent">0%</strong>
+        </article>
+      </section>
+
+      <section class="dashboard-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Conversion Funnel</p>
+            <h2>体验转化漏斗</h2>
+          </div>
+          <small id="lastEventAt">暂无数据</small>
+        </div>
+        <div id="funnelList" class="funnel-list"></div>
+      </section>
+
+      <section class="dashboard-panel review-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Product Review</p>
+            <h2>模型产品评审</h2>
+          </div>
+          <button id="loadReview" class="secondary-button" type="button">生成改版建议</button>
+        </div>
+        <div id="reviewResult" class="review-result">
+          <p>点击生成后，会根据当前转化漏斗和用户反馈给出下一步怎么改。</p>
+        </div>
+      </section>
+
+      <section class="dashboard-columns">
+        <article class="dashboard-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Feedback</p>
+              <h2>用户反馈分布</h2>
+            </div>
+          </div>
+          <div id="distributionList" class="distribution-list"></div>
+        </article>
+
+        <article class="dashboard-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Recent Notes</p>
+              <h2>最近反馈</h2>
+            </div>
+          </div>
+          <div id="recentFeedback" class="recent-list"></div>
+        </article>
+      </section>
+    </main>
+
+    <div class="toast" id="toast">已刷新</div>
+    <script src="./dashboard.js" type="module"></script>
+  </body>
+</html>

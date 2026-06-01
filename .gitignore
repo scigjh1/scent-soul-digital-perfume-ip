@@ -13,6 +13,7 @@ scripts/device_code.json
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+data/
 
 # OS/editor
 .DS_Store

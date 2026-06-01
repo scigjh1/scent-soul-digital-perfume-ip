@@ -1,4 +1,28 @@
+import { PERFUME_BRANDS, PERFUME_CATALOG, buildPerfumeMap, getCatalogItem } from "./catalog.js";
+
 const $ = (id) => document.getElementById(id);
+
+const sessionId = (() => {
+  const existing = localStorage.getItem("scentSoulSessionId");
+  if (existing) return existing;
+  const next = crypto.randomUUID?.() || `ss-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  localStorage.setItem("scentSoulSessionId", next);
+  return next;
+})();
+
+function track(event, detail = {}) {
+  fetch("/api/track", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      event,
+      detail,
+      sessionId,
+      path: location.pathname,
+      ts: new Date().toISOString()
+    })
+  }).catch(() => {});
+}
 
 const PERFUMES = {
   nile: {
@@ -35,8 +59,50 @@ const PERFUMES = {
   }
 };
 
+Object.assign(PERFUMES, buildPerfumeMap());
+
+const PRODUCT_IMAGES = {
+  "hermes-nile": "https://assets.hermes.com/is/image/hermesproduct/un-jardin-sur-le-nil-eau-de-toilette--20396-worn-2-0-0-1000-1000_g.jpg",
+  "byredo-bal": "https://www.byredo.com/media/catalog/category/ASSET_290_EVG_ECOM_SPOTVIEW_1400x1400_IMAGE_noLogo_noTagline_1.jpg",
+  "byredo-gypsy": "https://www.byredo.com/cdn-cgi/image/format=auto,quality=70/https://www.byredo.com/media/catalog/product/cache/538055185084634e259189a2a72f806b/8/0/806168_1_full_no.jpg",
+  "byredo-mojave": "https://www.byredo.com/media/catalog/category/ASSET_280_EVG_ECOM_SPOTVIEW_1400x1400_IMAGE_noLogo_noTagline.jpg",
+  "byredo-blanche": "https://www.byredo.com/media/catalog/category/ASSET_410_EVG_ECOM_SPOTVIEW_1400x1400_IMAGE_noLogo_noTagline.jpg",
+  "diptyque-philosykos": "https://www.diptyqueparis.com/media/catalog/product/d/i/diptyque-philosykos-eau-de-parfum-75ml-philop75-1.jpg?quality=100&bg-color=255,255,255&fit=bounds",
+  "diptyque-do-son": "https://cdn.shopify.com/s/files/1/0765/6138/3745/files/483106.jpg?v=1754972128&width=1200&crop=center",
+  "diptyque-tamdao": "https://cdn.shopify.com/s/files/1/0765/6138/3745/files/483140.jpg?v=1754971741&width=1200&crop=center",
+  "dior-sauvage": "https://www.dior.com/on/demandware.static/-/Sites-master_dior/default/dwafe36935/Y0785220/Y0785220_C099600180_E01_GHC.jpg",
+  "dior-jadore": "https://www.dior.com/on/demandware.static/-/Sites-master_dior/default/dw9251021c/Y0998031/Y0998031_C099800246_E01_GHC.jpg",
+  "dior-miss-dior": "https://www.dior.com/on/demandware.static/-/Sites-master_dior/default/dwd645641e/Y0996347/Y0996347_C099600763_E01_GHC.jpg",
+  "ysl-libre": "https://www.yslbeauty.com/dw/image/v2/BDCR_PRD/on/demandware.static/-/Sites-ysl-master-catalog/en/dw469e11e9/square/Fragrance/Libre_EDP/v23614272648418_libre_eau_de_parfum_50ml.png",
+  "ysl-myslf": "https://www.yslbeauty.com/dw/image/v2/BDCR_PRD/on/demandware.static/-/Sites-ysl-master-catalog/default/dw2023d58c/Fragrance/ForHim/MYSLF/WW-51115YSL/3614273852807-myslf-eau-de-parfum-main-v2.png",
+  "frederic-musc": "https://www.fredericmalle.com/media/images/products/630x615/fm_sku_FMNA78_630x615_0.jpg",
+  "jomalone-pear": "https://www.jomalone.com/media/export/cms/products/670x670/jo_sku_LA6C01_670x670_0.png",
+  "lelabo-santal33": "https://lelabo.ips.photos/lelabo-java/images/skus/050PS33100__PRODUCT_01--IMG_1200--SANTAL33--79960236.jpg",
+  "lelabo-another13": "https://lelabo.ips.photos/lelabo-java/images/skus/050PA13100__PRODUCT_07--IMG_1200--ANOTHER13--1468125917.jpg",
+  "margiela-lazy": "https://www.maisonmargiela.com/on/demandware.static/-/Sites-margiela-master-catalog/default/dwd5bce2b7/images/large/S33YX0018_S10932_001_F.jpg",
+  "tomford-oudwood": "https://www.tomfordbeauty.com/cdn/shop/files/tf_sku_T1XF01_2000x2000_0.png?v=1780267534",
+  "mfk-br540": "https://www.franciskurkdjian.com/dw/image/v2/BJSB_PRD/on/demandware.static/-/Sites-mfk-master-catalog/default/dwa46019b3/BACCARAT_ROUGE_540/FRAGRANCE/3700559603116_BR540_EDP_70ML_1.png?sw=640&sh=640&strip=false",
+  "kilian-love": "https://www.bykilian.com/media/images/products/833x968/kl_sku_N3E601_833x968_0.jpg",
+  "creed-aventus": "https://cdn.shopify.com/s/files/1/0765/6138/3745/files/49365.jpg?v=1754972571&width=1200&crop=center",
+  "bvlgari-omnia": "https://media.bulgari.com/image/upload/c_pad,h_1090,w_1090/q_auto/f_auto/1675256.png",
+  "nishane-hacivat": "https://nishane.com/wp-content/uploads/2022/09/a-50ml-19-HACIVAT.jpg",
+  "millerharris-tea": "https://cdn.shopify.com/s/files/1/0028/4606/4709/collections/Hydra_-_Collection_Header_Mobile_1080_x_1080.jpg?v=1763036220",
+  "floraiku-umbrella": "https://www.floraiku.com/cdn/shop/files/FAMILLE_nouveauxpursesprays_elargi_e411eeb6-27a3-4f14-9054-0efa79e28719.jpg?v=1642168061&width=2048"
+};
+
+const FEATURED_IDS = [
+  "byredo-bal",
+  "dior-sauvage",
+  "lelabo-santal33",
+  "tomford-oudwood",
+  "mfk-br540"
+];
+
 const state = {
   mood: "清透",
+  feedbackReason: "visual",
+  view: "advisor",
+  carouselIndex: 0,
   profile: null,
   particles: [],
   startedAt: performance.now(),
@@ -67,6 +133,69 @@ function hashNumber(value, min, max) {
 
 function pick(list, seed) {
   return list[Math.floor(hashNumber(seed, 0, list.length - 0.0001))];
+}
+
+function svgText(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function fallbackBottleImage(item, variant = "card") {
+  const colors = item.palette || ["#76f0cb", "#f8d25d", "#4a9cff", "#f8f4e9"];
+  const width = variant === "hero" ? 980 : 420;
+  const height = variant === "hero" ? 620 : 520;
+  const brand = svgText(item.brandCn || item.brand);
+  const name = svgText(item.nameCn || item.name);
+  const family = svgText(item.family);
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+      <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+          <stop stop-color="${colors[0]}" offset="0"/>
+          <stop stop-color="${colors[1] || colors[0]}" offset="0.48"/>
+          <stop stop-color="${colors[2] || colors[0]}" offset="1"/>
+        </linearGradient>
+        <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1">
+          <stop stop-color="#ffffff" stop-opacity="0.92" offset="0"/>
+          <stop stop-color="${colors[3] || "#ffffff"}" stop-opacity="0.42" offset="0.55"/>
+          <stop stop-color="#111111" stop-opacity="0.2" offset="1"/>
+        </linearGradient>
+        <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+          <feDropShadow dx="0" dy="28" stdDeviation="24" flood-color="#000000" flood-opacity="0.36"/>
+        </filter>
+      </defs>
+      <rect width="100%" height="100%" fill="#0d0d0a"/>
+      <rect width="100%" height="100%" fill="url(#bg)" opacity="0.64"/>
+      <circle cx="${width * 0.82}" cy="${height * 0.16}" r="${height * 0.24}" fill="#ffffff" opacity="0.12"/>
+      <circle cx="${width * 0.18}" cy="${height * 0.86}" r="${height * 0.28}" fill="#000000" opacity="0.22"/>
+      <g filter="url(#shadow)" transform="translate(${width * 0.48} ${height * 0.48})">
+        <rect x="-62" y="-210" width="124" height="50" rx="11" fill="#11110f"/>
+        <rect x="-38" y="-250" width="76" height="44" rx="8" fill="#f8f4e9" opacity="0.9"/>
+        <rect x="-118" y="-160" width="236" height="286" rx="36" fill="url(#glass)" stroke="#ffffff" stroke-opacity="0.55" stroke-width="3"/>
+        <rect x="-82" y="-84" width="164" height="112" rx="12" fill="#0d0d0a" opacity="0.78"/>
+        <text x="0" y="-42" fill="#f8f4e9" font-size="28" font-family="Arial, sans-serif" font-weight="700" text-anchor="middle">${brand}</text>
+        <text x="0" y="-6" fill="#f8f4e9" font-size="20" font-family="Arial, sans-serif" text-anchor="middle">${name}</text>
+        <text x="0" y="30" fill="#f8f4e9" opacity="0.7" font-size="15" font-family="Arial, sans-serif" text-anchor="middle">${family}</text>
+      </g>
+      <text x="${width * 0.08}" y="${height - 54}" fill="#f8f4e9" opacity="0.72" font-size="${variant === "hero" ? 26 : 18}" font-family="Arial, sans-serif">ScentSoul Brand Library</text>
+    </svg>
+  `;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+function productImage(item) {
+  return (PRODUCT_IMAGES[item.id] || fallbackBottleImage(item)).replace(/^http:/, "https:");
+}
+
+function renderMediaFallbacks() {
+  document.querySelectorAll("img[data-fallback]").forEach((img) => {
+    img.onerror = () => {
+      img.onerror = null;
+      img.src = img.dataset.fallback;
+    };
+  });
 }
 
 function randomBottle() {
@@ -105,6 +234,12 @@ function localProfile(payload) {
     raintea: ["雨茶竹影", "湿石白花", "云叶茶侍", "青盏回声"]
   };
   const id = payload.perfumeId || "nile";
+  const namePool = names[id] || [
+    `${perfume.notes[0]}灵`,
+    `${perfume.brandCn || ""}${perfume.nameCn || perfume.name}小像`,
+    `${perfume.notes[1] || "香气"}回声`,
+    `${perfume.family.slice(0, 2)}信使`
+  ];
   return {
     source: "local",
     generatedAt: new Date().toISOString(),
@@ -121,7 +256,7 @@ function localProfile(payload) {
       rarity: pick(["Common", "Uncommon", "Rare", "Rare", "Secret"], seed + "rarity")
     },
     ip: {
-      name: pick(names[id], seed + "name"),
+      name: pick(namePool, seed + "name"),
       archetype: pick(["情绪记录员", "气味采样师", "花园引路者", "瓶中守望者"], seed + "arch"),
       personality: pick([
         "安静但反应很快，会把你的情绪翻译成颜色。",
@@ -173,7 +308,7 @@ function localProfile(payload) {
       unlockHint: "分享收藏卡或连续唤醒 7 天，可以解锁第二段动画和隐藏音色。"
     },
     share: {
-      title: `${perfume.name} 的 ${pick(names[id], seed + "name2")}`,
+      title: `${perfume.name} 的 ${pick(namePool, seed + "name2")}`,
       subtitle: `这不是赠品，是编号 ${payload.bottleId} 的香气数字灵魂。`,
       hashtags: ["#ScentSoul", "#香水数字IP", `#${perfume.name.replace(/\s+/g, "")}`]
     },
@@ -452,13 +587,14 @@ function applyTheme(profile) {
 
 function renderProfile(profile, warning = "") {
   const p = normalizeProfile(profile);
+  const catalogItem = getCatalogItem(p.perfume.id) || getCatalogItem($("perfumeId").value);
   state.profile = p;
   applyTheme(p);
   seedParticles();
 
   $("ipName").textContent = p.ip.name;
   $("ipLine").textContent = p.ip.catchphrase || p.ip.personality;
-  $("sourcePill").textContent = warning ? "FALLBACK" : p.source.toUpperCase();
+  $("sourcePill").textContent = "智能生成";
   $("perfumeName").textContent = p.perfume.name;
   $("editionName").textContent = p.bottle.edition;
   $("rarity").textContent = p.bottle.rarity;
@@ -468,6 +604,13 @@ function renderProfile(profile, warning = "") {
   $("ritualStory").textContent = p.story.ritual;
   $("familyName").textContent = p.perfume.family;
   $("notes").innerHTML = p.perfume.notes.map((note) => `<span>${note}</span>`).join("");
+  if (catalogItem?.link) {
+    $("officialLink").href = catalogItem.link;
+    $("officialLink").textContent = `查看 ${catalogItem.brandCn} 官方页面`;
+    $("officialLink").hidden = false;
+  } else {
+    $("officialLink").hidden = true;
+  }
   $("shareTitle").textContent = p.share.title;
   $("shareSubtitle").textContent = p.share.subtitle;
   $("tags").innerHTML = [...(p.share.hashtags || []), ...(p.traits || []).slice(0, 3)]
@@ -483,6 +626,9 @@ function renderProfile(profile, warning = "") {
   $("shareRate").textContent = p.ops.metrics.shareRate;
   $("unlockRate").textContent = p.ops.metrics.recallRate;
   $("favMood").textContent = p.music.mood || state.mood;
+  $("feedbackScanMirror").textContent = $("scanCount").textContent;
+  $("feedbackShareMirror").textContent = p.ops.metrics.shareRate;
+  $("feedbackUnlockMirror").textContent = p.ops.metrics.recallRate;
   $("opsSegment").textContent = p.ops.segment;
   $("opsCampaign").textContent = p.ops.campaign;
   $("opsGoal").textContent = p.ops.conversionGoal;
@@ -499,6 +645,11 @@ async function generateProfile() {
   state.busy = true;
   $("generateBtn").disabled = true;
   $("generateBtn").querySelector("span").textContent = "正在生成香气灵魂";
+  track("generate_start", {
+    perfumeId: payload.perfumeId,
+    mood: payload.mood,
+    bottleId: payload.bottleId
+  });
 
   try {
     const response = await fetch("/api/generate", {
@@ -510,8 +661,19 @@ async function generateProfile() {
     const data = await response.json();
     if (!data.profile) throw new Error(data.error || "No profile");
     renderProfile(data.profile, data.warning || "");
+    track("generate_success", {
+      perfumeId: payload.perfumeId,
+      mood: payload.mood,
+      source: data.profile.source,
+      fallback: Boolean(data.warning)
+    });
   } catch (error) {
     renderProfile(localProfile(payload), "未连接后端，已使用浏览器本地生成。");
+    track("generate_fallback", {
+      perfumeId: payload.perfumeId,
+      mood: payload.mood,
+      reason: error.message
+    });
   } finally {
     state.busy = false;
     $("generateBtn").disabled = false;
@@ -647,7 +809,10 @@ function copyCard() {
     ...(p.share.hashtags || [])
   ].join("\n");
   navigator.clipboard?.writeText(text).then(
-    () => showToast("收藏卡已复制"),
+    () => {
+      track("copy_card", { perfumeId: p.perfume.id, bottleId: p.bottle.id, ipName: p.ip.name });
+      showToast("收藏卡已复制");
+    },
     () => showToast("浏览器不允许复制，可以手动选中文案")
   );
 }
@@ -665,7 +830,10 @@ function copyOpsPlan() {
     `产品闭环：购买 - 扫码激活 - 数字 IP 体验 - 收藏卡分享 - 二次唤醒 - 复购推荐`
   ].join("\n");
   navigator.clipboard?.writeText(text).then(
-    () => showToast("运营方案已复制"),
+    () => {
+      track("copy_ops", { perfumeId: p.perfume.id, segment: p.ops.segment });
+      showToast("运营方案已复制");
+    },
     () => showToast("浏览器不允许复制，可以手动选中文案")
   );
 }
@@ -675,7 +843,35 @@ function savePng() {
   link.download = `${state.profile?.ip?.name || "scent-soul"}.png`;
   link.href = canvas.toDataURL("image/png");
   link.click();
+  track("save_png", {
+    perfumeId: state.profile?.perfume?.id || $("perfumeId").value,
+    ipName: state.profile?.ip?.name || ""
+  });
   showToast("动态画面已保存为 PNG");
+}
+
+function submitFeedback(event) {
+  event.preventDefault();
+  const payload = currentPayload();
+  const score = $("feedbackScore").value;
+  const role = $("feedbackRole").value;
+  const shareIntent = $("feedbackShareIntent").value;
+  const purchaseIntent = $("feedbackPurchaseIntent").value;
+  const useCase = $("feedbackUseCase").value;
+  const feedback = $("feedbackText").value.trim();
+  track("feedback_submit", {
+    perfumeId: payload.perfumeId,
+    mood: payload.mood,
+    role,
+    score,
+    reason: state.feedbackReason,
+    shareIntent,
+    purchaseIntent,
+    useCase,
+    feedback
+  });
+  $("feedbackText").value = "";
+  showToast("反馈已记录，可以用于小样本调研");
 }
 
 function showToast(message) {
@@ -686,7 +882,197 @@ function showToast(message) {
   showToast.timer = setTimeout(() => toast.classList.remove("show"), 2300);
 }
 
+function optionLabel(item) {
+  return `${item.brandCn} ${item.nameCn}｜${item.family}`;
+}
+
+function populatePerfumeCatalog() {
+  const grouped = PERFUME_CATALOG.reduce((acc, item) => {
+    const key = item.brand;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(item);
+    return acc;
+  }, {});
+  $("perfumeId").innerHTML = Object.entries(grouped)
+    .map(([brand, items]) => `
+      <optgroup label="${items[0].brandCn} / ${brand}">
+        ${items.map((item) => `<option value="${item.id}">${optionLabel(item)}</option>`).join("")}
+      </optgroup>
+    `)
+    .join("");
+  $("perfumeId").value = "hermes-nile";
+
+  $("brandFilter").innerHTML = [
+    `<option value="all">全部品牌（${PERFUME_BRANDS.length}）</option>`,
+    ...PERFUME_BRANDS.map((brand) => {
+      const count = PERFUME_CATALOG.filter((item) => item.brand === brand).length;
+      const label = PERFUME_CATALOG.find((item) => item.brand === brand)?.brandCn || brand;
+      return `<option value="${brand}">${label} / ${brand}（${count}）</option>`;
+    })
+  ].join("");
+  $("catalogCount").textContent = `${PERFUME_BRANDS.length} 品牌 / ${PERFUME_CATALOG.length} 款`;
+  renderBrandShelf();
+}
+
+function renderBrandShelf() {
+  const brand = $("brandFilter").value || "all";
+  const baseItems = brand === "all" ? PERFUME_CATALOG : PERFUME_CATALOG.filter((item) => item.brand === brand);
+  const items = [...baseItems].sort((a, b) => {
+    const realA = PRODUCT_IMAGES[a.id] ? 1 : 0;
+    const realB = PRODUCT_IMAGES[b.id] ? 1 : 0;
+    return realB - realA || a.brand.localeCompare(b.brand) || a.name.localeCompare(b.name);
+  });
+  const activeId = $("perfumeId").value;
+  $("brandShelf").innerHTML = items.map((item) => `
+    <article class="brand-item ${item.id === activeId ? "active" : ""}">
+      <img class="product-image" src="${productImage(item)}" data-fallback="${fallbackBottleImage(item)}" alt="${item.brandCn} ${item.nameCn}" loading="lazy" />
+      <div class="brand-item-copy">
+        <button class="brand-select" type="button" data-id="${item.id}">
+          <b>${item.brandCn} ${item.nameCn}</b>
+          <span>${item.name} · ${item.family}</span>
+          <small>${item.tags.slice(0, 4).join(" / ")}</small>
+        </button>
+        <div class="brand-actions">
+          <button class="mini-button brand-generate" type="button" data-id="${item.id}">生成 IP</button>
+          <a class="mini-link brand-link" href="${item.link}" target="_blank" rel="noreferrer" data-link-id="${item.id}">官网</a>
+        </div>
+      </div>
+    </article>
+  `).join("");
+  renderMediaFallbacks();
+}
+
+function selectPerfume(perfumeId, source = "catalog") {
+  $("perfumeId").value = perfumeId;
+  renderProfile(localProfile(currentPayload()));
+  renderBrandShelf();
+  const item = getCatalogItem(perfumeId);
+  track("perfume_select", { perfumeId, brand: item.brand, source });
+}
+
+function recommendPerfumes() {
+  const need = $("advisorNeed").value.trim();
+  const occasion = $("advisorOccasion").value;
+  const query = `${need} ${occasion}`.toLowerCase();
+  const scored = PERFUME_CATALOG.map((item) => {
+    const haystack = [
+      item.brand,
+      item.brandCn,
+      item.name,
+      item.nameCn,
+      item.family,
+      item.description,
+      item.gender,
+      item.intensity,
+      ...item.notes,
+      ...item.tags,
+      ...item.occasions
+    ].join(" ").toLowerCase();
+    let score = item.occasions.includes(occasion) ? 18 : 0;
+    for (const word of query.split(/\s+/).filter(Boolean)) {
+      if (haystack.includes(word)) score += 6;
+    }
+    if (/干净|清爽|清新|通勤|不甜/.test(need) && item.tags.some((tag) => ["干净", "清爽", "清新", "皂感", "通勤", "亲肤"].includes(tag))) score += 14;
+    if (/甜|约会|性感|女/.test(need) && item.tags.some((tag) => ["甜", "约会", "性感", "女性"].includes(tag))) score += 12;
+    if (/木|檀|沉稳|男|商务/.test(need) && item.tags.some((tag) => ["木质", "商务", "男香", "成熟"].includes(tag))) score += 12;
+    if (/茶|绿|草|夏|水/.test(need) && item.tags.some((tag) => ["茶香", "绿意", "草本", "水感", "夏天", "春夏"].includes(tag))) score += 12;
+    return { item, score };
+  }).sort((a, b) => b.score - a.score || a.item.brand.localeCompare(b.item.brand));
+
+  const results = scored.slice(0, 5).map(({ item }) => item);
+  $("advisorResults").innerHTML = results.map((item) => `
+    <article class="advisor-result">
+      <img class="advisor-image" src="${productImage(item)}" data-fallback="${fallbackBottleImage(item)}" alt="${item.brandCn} ${item.nameCn}" loading="lazy" />
+      <div>
+        <b>${item.brandCn} ${item.nameCn}</b>
+        <p>${item.description}</p>
+        <div class="advisor-actions">
+          <button class="mini-button" type="button" data-id="${item.id}">用这款生成 IP</button>
+          <a class="mini-link" href="${item.link}" target="_blank" rel="noreferrer">官方链接</a>
+        </div>
+      </div>
+    </article>
+  `).join("");
+  renderMediaFallbacks();
+  track("advisor_recommend", { need, occasion, resultIds: results.map((item) => item.id) });
+}
+
+function renderCarousel() {
+  const items = FEATURED_IDS.map((id) => getCatalogItem(id)).filter(Boolean);
+  if (!items.length) return;
+  state.carouselIndex = (state.carouselIndex + items.length) % items.length;
+  const item = items[state.carouselIndex];
+  $("brandCarousel").innerHTML = `
+    <article class="carousel-card">
+      <div class="carousel-image-wrap">
+        <img class="carousel-image" src="${productImage(item)}" data-fallback="${fallbackBottleImage(item, "hero")}" alt="${item.brandCn} ${item.nameCn}" />
+      </div>
+      <div class="carousel-copy">
+        <p class="eyebrow">${item.brand} / ${item.intensity} / ${item.gender}</p>
+        <h3>${item.brandCn} ${item.nameCn}</h3>
+        <p>${item.description}</p>
+        <div class="carousel-tags">
+          ${item.tags.slice(0, 5).map((tag) => `<span>${tag}</span>`).join("")}
+        </div>
+        <div class="carousel-actions">
+          <button class="primary-button brand-generate" type="button" data-id="${item.id}">
+            <span>用这款生成数字 IP</span>
+            <small>${item.family}</small>
+          </button>
+          <a class="secondary-button carousel-official" href="${item.link}" target="_blank" rel="noreferrer" data-link-id="${item.id}">查看官网</a>
+        </div>
+      </div>
+    </article>
+  `;
+  renderMediaFallbacks();
+}
+
+function moveCarousel(delta, shouldTrack = true) {
+  state.carouselIndex += delta;
+  renderCarousel();
+  if (shouldTrack) track("carousel_move", { index: state.carouselIndex });
+}
+
+function switchView(view) {
+  state.view = view;
+  document.querySelectorAll("[data-view]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.view === view);
+  });
+  ["advisor", "brands", "feedback"].forEach((name) => {
+    $(`${name}View`).classList.toggle("active", view === name);
+  });
+  if (view === "brands") {
+    renderCarousel();
+    renderBrandShelf();
+  }
+  track("view_switch", { view });
+}
+
+async function syncModelStatus() {
+  const status = $("modelStatus");
+  try {
+    const response = await fetch("/api/health");
+    if (!response.ok) throw new Error(`health ${response.status}`);
+    const health = await response.json();
+    const connected = Boolean(health.llm);
+    status.textContent = connected ? "在线智能推荐" : "智能推荐";
+    status.classList.toggle("connected", connected);
+    status.classList.toggle("local", !connected);
+    $("sourcePill").title = connected
+      ? `当前后端模型：${health.provider} / ${health.model}`
+      : "当前没有检测到 API Key，使用本地生成逻辑。";
+  } catch (error) {
+    status.textContent = "本地模式";
+    status.classList.add("local");
+    $("sourcePill").title = "未检测到后端健康检查，使用浏览器本地生成逻辑。";
+  }
+}
+
 function bindEvents() {
+  document.querySelectorAll("[data-view]").forEach((button) => {
+    button.addEventListener("click", () => switchView(button.dataset.view));
+  });
+
   $("scentForm").addEventListener("submit", (event) => {
     event.preventDefault();
     generateProfile();
@@ -695,6 +1081,7 @@ function bindEvents() {
   $("randomBottle").addEventListener("click", () => {
     $("bottleId").value = randomBottle();
     $("bottlePreview").textContent = $("bottleId").value;
+    track("random_bottle", { bottleId: $("bottleId").value });
   });
 
   $("bottleId").addEventListener("input", () => {
@@ -702,32 +1089,120 @@ function bindEvents() {
   });
 
   $("perfumeId").addEventListener("change", () => {
+    const item = getCatalogItem($("perfumeId").value);
+    track("perfume_change", { perfumeId: $("perfumeId").value, brand: item.brand });
     renderProfile(localProfile(currentPayload()));
+    renderBrandShelf();
+  });
+
+  $("brandFilter").addEventListener("change", () => {
+    renderBrandShelf();
+    track("brand_filter", { brand: $("brandFilter").value });
+  });
+
+  $("brandShelf").addEventListener("click", (event) => {
+    const link = event.target.closest("a[data-link-id]");
+    if (link) {
+      const item = getCatalogItem(link.dataset.linkId);
+      track("official_link_click", { perfumeId: link.dataset.linkId, brand: item.brand, source: "brand_shelf" });
+      return;
+    }
+    const generateButton = event.target.closest(".brand-generate[data-id]");
+    if (generateButton) {
+      selectPerfume(generateButton.dataset.id, "brand_library_generate");
+      switchView("advisor");
+      generateProfile();
+      return;
+    }
+    const button = event.target.closest(".brand-select[data-id]");
+    if (!button) return;
+    selectPerfume(button.dataset.id, "brand_shelf");
+  });
+
+  $("carouselPrev").addEventListener("click", () => moveCarousel(-1));
+  $("carouselNext").addEventListener("click", () => moveCarousel(1));
+  $("brandCarousel").addEventListener("click", (event) => {
+    const link = event.target.closest("a[data-link-id]");
+    if (link) {
+      const item = getCatalogItem(link.dataset.linkId);
+      track("official_link_click", { perfumeId: item.id, brand: item.brand, source: "brand_carousel" });
+      return;
+    }
+    const button = event.target.closest(".brand-generate[data-id]");
+    if (!button) return;
+    selectPerfume(button.dataset.id, "brand_carousel_generate");
+    switchView("advisor");
+    generateProfile();
+  });
+
+  $("libraryToAdvisor").addEventListener("click", () => switchView("advisor"));
+
+  $("advisorBtn").addEventListener("click", recommendPerfumes);
+
+  $("promptChips").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-prompt]");
+    if (!button) return;
+    $("advisorNeed").value = button.dataset.prompt;
+    track("prompt_chip_select", { prompt: button.dataset.prompt });
+    recommendPerfumes();
+  });
+
+  $("advisorResults").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-id]");
+    if (!button) return;
+    selectPerfume(button.dataset.id, "advisor");
+    generateProfile();
   });
 
   $("moodChips").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-mood]");
     if (!button) return;
     state.mood = button.dataset.mood;
+    track("mood_change", { mood: state.mood });
     [...$("moodChips").querySelectorAll("button")].forEach((btn) => btn.classList.toggle("active", btn === button));
   });
 
+  $("feedbackReasons").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-reason]");
+    if (!button) return;
+    state.feedbackReason = button.dataset.reason;
+    [...$("feedbackReasons").querySelectorAll("button")].forEach((item) => item.classList.toggle("active", item === button));
+    track("feedback_reason_select", { reason: state.feedbackReason, perfumeId: currentPayload().perfumeId });
+  });
+
   $("musicToggle").addEventListener("click", () => {
-    if (isPlaying) stopMusic();
-    else startMusic();
+    if (isPlaying) {
+      stopMusic();
+      track("music_stop", { perfumeId: currentPayload().perfumeId });
+    } else {
+      startMusic();
+      track("music_start", { perfumeId: currentPayload().perfumeId });
+    }
   });
 
   $("copyCard").addEventListener("click", copyCard);
   $("copyOps").addEventListener("click", copyOpsPlan);
   $("savePng").addEventListener("click", savePng);
+  $("officialLink").addEventListener("click", () => {
+    const item = getCatalogItem($("perfumeId").value);
+    track("official_link_click", { perfumeId: item.id, brand: item.brand, source: "selected_perfume" });
+  });
+  $("feedbackForm").addEventListener("submit", submitFeedback);
   window.addEventListener("resize", resizeCanvas);
 }
 
 function init() {
+  populatePerfumeCatalog();
+  renderCarousel();
   bindEvents();
+  syncModelStatus();
+  track("page_view", { app: "ScentSoul", perfumeId: $("perfumeId").value });
   $("bottlePreview").textContent = $("bottleId").value;
   resizeCanvas();
   renderProfile(localProfile(currentPayload()));
+  setInterval(() => {
+    if (state.view === "brands") moveCarousel(1, false);
+  }, 5200);
   requestAnimationFrame(drawScene);
 }
 

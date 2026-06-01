@@ -19,7 +19,8 @@ ScentSoul 把“购买后体验”产品化：
 
 ## 特色功能
 
-- 香水选择：尼罗河花园、绯雾花庭、琥珀书房、雨后茶室。
+- 香水选择：内置 49 个香水品牌、70 款代表香水，覆盖 Hermes、Byredo、Diptyque、Chanel、Dior、YSL、Frederic Malle、Tom Ford、MFK、Creed、Le Labo 等。
+- 香水顾问：用户输入想要的气味风格、场景和偏好后，系统推荐对应香水并可一键生成数字 IP。
 - 大模型生成：IP 名字、人格、场景、视觉参数、音乐参数、故事、分享卡。
 - 动态画面：Canvas 根据模型生成的 palette、motifs、motion 实时渲染。
 - 香气音乐：Web Audio 根据 bpm、key、brightness、warmth、pulse 生成氛围音。
@@ -27,6 +28,9 @@ ScentSoul 把“购买后体验”产品化：
 - 运营策略：根据用户情绪和香型生成用户分层、活动主题、转化目标和下一步动作。
 - 本地兜底：没有 API Key 也能演示，系统会使用本地生成器。
 - 运营看板：展示扫码激活、分享率、二次唤醒、偏好情绪等运营指标。
+- 数据采集：记录访问、生成、复制、保存和反馈提交，可导出 CSV 做小样本验证。
+- 产品数据后台：`/dashboard.html` 可查看转化漏斗、反馈分布、购买兴趣和最近反馈。
+- 模型产品评审：数据后台可一键生成改版优先级、实验方案和风险提醒。
 
 ## 产品与运营闭环
 
@@ -87,6 +91,29 @@ npm start
 ```
 
 注意：不要把 API Key 写进前端代码。这个项目通过 `server.mjs` 调用大模型，前端只请求 `/api/generate`。没有 Key 或模型调用失败时会自动切换本地生成器。
+
+### 3. 发给朋友并收集数据
+
+页面已经接入轻量埋点和反馈表单。运行 Node 服务后，数据会写入 `data/events.jsonl`，并可通过下面接口查看：
+
+```text
+http://localhost:4177/api/metrics
+http://localhost:4177/api/export/events.csv
+```
+
+产品数据后台：
+
+```text
+http://localhost:4177/dashboard.html?token=你的ADMIN_TOKEN
+```
+
+后台里的“模型产品评审”会读取当前转化漏斗和反馈分布，生成下一步怎么改。配置了国内大模型 API Key 时走模型诊断；没有 Key 时使用本地产品评审规则兜底。
+
+正式发给朋友前建议设置 `ADMIN_TOKEN`，再用国内内网穿透或国内云服务器生成公网地址。详细看：
+
+```text
+docs/数据采集与国内分享部署说明.md
+```
 
 ## 文件结构
 

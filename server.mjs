@@ -1,14 +1,18 @@
 import { createServer } from "node:http";
-import { readFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import crypto from "node:crypto";
+import { PERFUME_CATALOG, buildPerfumeMap } from "./app/catalog.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const appDir = join(__dirname, "app");
+const dataDir = join(__dirname, "data");
+const eventsFile = join(dataDir, "events.jsonl");
 const port = Number(process.env.PORT || 4177);
 const provider = (process.env.LLM_PROVIDER || process.env.MODEL_PROVIDER || "").toLowerCase();
+const adminToken = process.env.ADMIN_TOKEN || "";
 
 const PROVIDERS = {
   deepseek: {
@@ -111,9 +115,25 @@ const PERFUMES = {
   }
 };
 
+Object.assign(PERFUMES, buildPerfumeMap());
+
 function json(res, status, data) {
   res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(data));
+}
+
+function text(res, status, content, headers = {}) {
+  res.writeHead(status, {
+    "Content-Type": "text/plain; charset=utf-8",
+    ...headers
+  });
+  res.end(content);
+}
+
+function isAdminRequest(req) {
+  if (!adminToken) return true;
+  const url = new URL(req.url, `http://localhost:${port}`);
+  return req.headers["x-admin-token"] === adminToken || url.searchParams.get("token") === adminToken;
 }
 
 function readBody(req) {
@@ -146,6 +166,257 @@ function hashNumber(value, min, max) {
 function pick(list, seed) {
   const idx = Math.floor(hashNumber(seed, 0, list.length - 0.0001));
   return list[idx];
+}
+
+function safeString(value, max = 240) {
+  return String(value ?? "").slice(0, max);
+}
+
+async function trackEvent(req) {
+  const payload = await readBody(req);
+  const record = {
+    receivedAt: new Date().toISOString(),
+    event: safeString(payload.event || "unknown", 80),
+    sessionId: safeString(payload.sessionId || "anonymous", 120),
+    path: safeString(payload.path || "", 240),
+    userAgent: safeString(req.headers["user-agent"] || "", 320),
+    detail: payload.detail && typeof payload.detail === "object" ? payload.detail : { value: payload.detail ?? null }
+  };
+  await mkdir(dataDir, { recursive: true });
+  await appendFile(eventsFile, `${JSON.stringify(record)}\n`, "utf8");
+  return record;
+}
+
+async function readEvents() {
+  if (!existsSync(eventsFile)) return [];
+  const content = await readFile(eventsFile, "utf8");
+  return content
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => {
+      try {
+        return JSON.parse(line);
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
+}
+
+function summarizeEvents(events) {
+  const byEvent = {};
+  const sessions = new Set();
+  for (const event of events) {
+    byEvent[event.event] = (byEvent[event.event] || 0) + 1;
+    if (event.sessionId) sessions.add(event.sessionId);
+  }
+  const count = (name) => byEvent[name] || 0;
+  const rate = (part, base) => (base ? `${Math.round((part / base) * 1000) / 10}%` : "0%");
+  const funnel = [
+    { key: "page_view", label: "访问页面", count: count("page_view") },
+    { key: "generate_start", label: "点击生成", count: count("generate_start") },
+    { key: "generate_success", label: "生成成功", count: count("generate_success") },
+    { key: "copy_card", label: "复制收藏卡", count: count("copy_card") },
+    { key: "feedback_submit", label: "提交反馈", count: count("feedback_submit") }
+  ].map((step, index, list) => ({
+    ...step,
+    rateFromVisit: rate(step.count, list[0]?.count || 0),
+    rateFromPrevious: index === 0 ? "100%" : rate(step.count, list[index - 1].count)
+  }));
+  const feedbackEvents = events.filter((event) => event.event === "feedback_submit");
+  const distribution = (field) => feedbackEvents.reduce((acc, event) => {
+    const value = event.detail?.[field] || "unknown";
+    acc[value] = (acc[value] || 0) + 1;
+    return acc;
+  }, {});
+  const scores = feedbackEvents.map((event) => Number(event.detail?.score)).filter((score) => Number.isFinite(score));
+  const yesRate = (field) => rate(feedbackEvents.filter((event) => event.detail?.[field] === "yes").length, feedbackEvents.length);
+  const feedbackSummary = {
+    count: feedbackEvents.length,
+    averageScore: scores.length ? Math.round((scores.reduce((sum, score) => sum + score, 0) / scores.length) * 10) / 10 : 0,
+    shareIntentRate: yesRate("shareIntent"),
+    purchaseIntentRate: yesRate("purchaseIntent"),
+    role: distribution("role"),
+    reason: distribution("reason"),
+    useCase: distribution("useCase"),
+    perfume: distribution("perfumeId")
+  };
+  return {
+    totalEvents: events.length,
+    uniqueSessions: sessions.size,
+    byEvent,
+    funnel,
+    feedbackSummary,
+    recentFeedback: feedbackEvents.slice(-12).reverse().map((event) => ({
+      receivedAt: event.receivedAt,
+      sessionId: event.sessionId,
+      detail: event.detail
+    })),
+    lastEventAt: events.at(-1)?.receivedAt || null
+  };
+}
+
+function csvEscape(value) {
+  const textValue = typeof value === "string" ? value : JSON.stringify(value ?? "");
+  return `"${textValue.replace(/"/g, '""')}"`;
+}
+
+function eventsToCsv(events) {
+  const fields = ["receivedAt", "event", "sessionId", "path", "userAgent", "detail"];
+  const rows = events.map((event) => fields.map((field) => csvEscape(event[field])).join(","));
+  return `${fields.join(",")}\n${rows.join("\n")}`;
+}
+
+function localProductReview(metrics) {
+  const feedback = metrics.feedbackSummary || {};
+  const byEvent = metrics.byEvent || {};
+  const pageViews = byEvent.page_view || 0;
+  const generateStarts = byEvent.generate_start || 0;
+  const generateSuccess = byEvent.generate_success || 0;
+  const copyCards = byEvent.copy_card || 0;
+  const feedbackCount = feedback.count || 0;
+  const topReason = Object.entries(feedback.reason || {}).sort((a, b) => b[1] - a[1])[0]?.[0] || "visual";
+  const actionByReason = {
+    visual: "把首屏动态画面做成更强的香调差异：尼罗河突出水流和柑橘，琥珀突出纸张、木纹和暖光。",
+    music: "把播放按钮前置到主舞台，并增加 3 秒自动预览，让用户不用理解功能也能听到香气音乐。",
+    story: "把开场故事压缩成一句更强的社交标题，再展开第二段故事，减少阅读负担。",
+    card: "把收藏卡做成可截图的独立卡片，并增加小红书/朋友圈两种文案模板。",
+    none: "首屏价值表达还不够直接，应先强化“买一瓶香水获得专属电子 IP”的一句话解释。"
+  };
+  const lowData = pageViews < 10 || feedbackCount < 5;
+
+  return {
+    source: "local-review",
+    generatedAt: new Date().toISOString(),
+    score: lowData ? 72 : Math.min(92, 72 + feedback.averageScore * 4 + Math.min(copyCards, 8)),
+    summary: lowData
+      ? "当前产品形态已经能表达香水数字 IP 的概念，但样本量不足，下一步应先扩大朋友体验样本，再判断最强转化点。"
+      : "当前产品的核心吸引点集中在动态体验和收藏传播，下一步应减少理解成本，并把分享与购买兴趣承接得更自然。",
+    priorities: [
+      {
+        title: "降低首屏理解成本",
+        why: generateStarts < pageViews * 0.5 ? "访问后点击生成的人偏少，说明用户可能还没快速理解要做什么。" : "生成点击表现尚可，但首屏仍需要更强的一句话价值锚点。",
+        action: "把主按钮上方改成一句强提示：扫码后生成只属于这瓶香水的动画、音乐和收藏卡。",
+        metric: "观察 generate_start / page_view 是否提升。"
+      },
+      {
+        title: "强化最打动点",
+        why: `当前反馈里最明显的打动点是 ${topReason}。`,
+        action: actionByReason[topReason] || actionByReason.visual,
+        metric: "观察 feedback_submit 中 reason 的集中度和 averageScore。"
+      },
+      {
+        title: "把分享变成自然下一步",
+        why: copyCards < generateSuccess * 0.35 ? "生成后复制收藏卡的人还不够多，分享动作需要更明显的理由。" : "收藏卡已经能承接部分分享，应继续强化卡片价值。",
+        action: "生成后在收藏卡模块增加一句“把这张卡发给朋友，让 TA 猜你的香气人格”。",
+        metric: "观察 copy_card / generate_success 是否提升。"
+      }
+    ],
+    experiments: [
+      "A/B 测试主按钮文案：生成专属数字灵魂 vs 唤醒我的香水 IP。",
+      "给尼罗河花园单独做水流/柑橘更强的默认动效，对比平均评分。",
+      "把反馈入口从右侧底部移动到生成成功后的收藏卡下方，对比反馈提交率。"
+    ],
+    risks: [
+      "样本太少时不要在简历里写真实提升百分比，只写已建立指标口径和小样本验证链路。",
+      "如果接入真实模型，API Key 必须放在服务端环境变量，不要写进前端。",
+      "朋友调研时避免收集手机号、微信等敏感信息，先只收体验偏好。"
+    ]
+  };
+}
+
+function buildReviewPrompt(metrics) {
+  return `
+你是一个严厉但建设性的产品经理面试官 + 增长产品顾问。
+请评价一个名为 ScentSoul 的香水数字 IP 产品，并给出下一步怎么改。
+
+产品定位：
+- 用户购买香水后扫码，获得专属电子 IP。
+- 每瓶香水生成不同的动画、音乐、故事和收藏卡。
+- 目标是提升购买后互动、分享、二次唤醒和小样/礼盒兴趣。
+
+当前数据：
+${JSON.stringify(metrics, null, 2)}
+
+只返回 JSON，不要 Markdown。字段如下：
+{
+  "score": 0-100,
+  "summary": "80字以内总体评价",
+  "priorities": [
+    {
+      "title": "优先级标题",
+      "why": "为什么要改",
+      "action": "具体怎么改",
+      "metric": "用什么指标验证"
+    }
+  ],
+  "experiments": ["3个可做的小实验"],
+  "risks": ["2-3个风险提醒"]
+}
+
+要求：
+1. 不要泛泛而谈，每条建议都要能落到页面、交互、文案、转化或运营动作上。
+2. 如果数据少，要明确说先扩大样本，不要编造结论。
+3. 语言直接，适合学生拿去改作品集和准备产品经理面试。
+`;
+}
+
+function normalizeReview(raw, metrics, source) {
+  const fallback = localProductReview(metrics);
+  return {
+    source,
+    generatedAt: new Date().toISOString(),
+    score: Math.max(0, Math.min(100, Number(raw.score) || fallback.score)),
+    summary: safeString(raw.summary || fallback.summary, 220),
+    priorities: Array.isArray(raw.priorities) && raw.priorities.length
+      ? raw.priorities.slice(0, 5).map((item) => ({
+        title: safeString(item.title, 80),
+        why: safeString(item.why, 220),
+        action: safeString(item.action, 260),
+        metric: safeString(item.metric, 180)
+      }))
+      : fallback.priorities,
+    experiments: Array.isArray(raw.experiments) && raw.experiments.length
+      ? raw.experiments.slice(0, 5).map((item) => safeString(item, 220))
+      : fallback.experiments,
+    risks: Array.isArray(raw.risks) && raw.risks.length
+      ? raw.risks.slice(0, 4).map((item) => safeString(item, 220))
+      : fallback.risks
+  };
+}
+
+async function llmProductReview(metrics) {
+  if (!llmApiKey || activeProvider === "local") return localProductReview(metrics);
+
+  try {
+    const response = await fetch(`${llmBaseURL}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${llmApiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          {
+            role: "system",
+            content: "你是资深产品经理和增长顾问，只返回合法 JSON，不返回 Markdown。"
+          },
+          {
+            role: "user",
+            content: buildReviewPrompt(metrics)
+          }
+        ],
+        temperature: 0.35,
+        max_tokens: 1600
+      })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) return localProductReview(metrics);
+    return normalizeReview(parseLooseJson(extractText(data)), metrics, activeProvider);
+  } catch {
+    return localProductReview(metrics);
+  }
 }
 
 function clamp(n, min, max) {
@@ -241,7 +512,13 @@ function fallbackName(perfume, seed) {
   };
   const last = ["小灵", "守望者", "采样师", "记录员", "回声"];
   const key = Object.keys(PERFUMES).find((id) => PERFUMES[id] === perfume) || "nile";
-  return pick(first[key], seed + "a") + pick(last, seed + "b");
+  const pool = first[key] || [
+    perfume.notes?.[0] || "香气",
+    perfume.notes?.[1] || "光影",
+    perfume.brandCn || "瓶中",
+    perfume.family?.slice(0, 2) || "气味"
+  ];
+  return pick(pool, seed + "a") + pick(last, seed + "b");
 }
 
 function localProfile(payload) {
@@ -254,11 +531,17 @@ function localProfile(payload) {
     raintea: ["雨茶竹影", "湿石白花", "云叶茶侍", "青盏回声"]
   };
   const id = payload.perfumeId || "nile";
+  const namePool = ipNames[id] || [
+    `${perfume.notes[0]}灵`,
+    `${perfume.brandCn || ""}${perfume.nameCn || perfume.name}小像`,
+    `${perfume.notes[1] || "香气"}回声`,
+    `${perfume.family.slice(0, 2)}信使`
+  ];
   return normalizeProfile({
     edition: pick(["晨雾版", "河光版", "温室版", "雨声版", "夜航版"], seed),
     rarity: pick(["Common", "Uncommon", "Rare", "Rare", "Secret"], seed + "rarity"),
     ip: {
-      name: pick(ipNames[id], seed + "name"),
+      name: pick(namePool, seed + "name"),
       archetype: pick(["情绪记录员", "气味采样师", "花园引路者", "瓶中守望者"], seed + "arch"),
       personality: pick([
         "安静但反应很快，会把你的情绪翻译成颜色。",
@@ -315,7 +598,7 @@ function localProfile(payload) {
       unlockHint: "分享收藏卡或连续唤醒 7 天，可以解锁第二段动画和隐藏音色。"
     },
     share: {
-      title: `${perfume.name} 的 ${pick(ipNames[id], seed + "name2")}`,
+      title: `${perfume.name} 的 ${pick(namePool, seed + "name2")}`,
       subtitle: `这不是赠品，是编号 ${payload.bottleId || "SS-000000"} 的香气数字灵魂。`,
       hashtags: ["#ScentSoul", "#香水数字IP", `#${perfume.name.replace(/\s+/g, "")}`]
     },
@@ -508,6 +791,53 @@ async function handleStatic(req, res) {
 
 const server = createServer(async (req, res) => {
   try {
+    if (req.method === "POST" && req.url === "/api/track") {
+      const event = await trackEvent(req);
+      json(res, 200, { ok: true, event: event.event });
+      return;
+    }
+    if (req.method === "GET" && req.url.startsWith("/api/metrics")) {
+      if (!isAdminRequest(req)) {
+        json(res, 401, { ok: false, error: "Unauthorized" });
+        return;
+      }
+      const events = await readEvents();
+      json(res, 200, { ok: true, ...summarizeEvents(events) });
+      return;
+    }
+    if (req.method === "GET" && req.url.startsWith("/api/review")) {
+      if (!isAdminRequest(req)) {
+        json(res, 401, { ok: false, error: "Unauthorized" });
+        return;
+      }
+      const events = await readEvents();
+      const metrics = summarizeEvents(events);
+      json(res, 200, { ok: true, review: await llmProductReview(metrics) });
+      return;
+    }
+    if (req.method === "GET" && req.url.startsWith("/api/export/events.csv")) {
+      if (!isAdminRequest(req)) {
+        json(res, 401, { ok: false, error: "Unauthorized" });
+        return;
+      }
+      const csv = eventsToCsv(await readEvents());
+      text(res, 200, csv, {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": "attachment; filename=scent-soul-events.csv"
+      });
+      return;
+    }
+    if (req.method === "GET" && req.url.startsWith("/api/export/events.jsonl")) {
+      if (!isAdminRequest(req)) {
+        json(res, 401, { ok: false, error: "Unauthorized" });
+        return;
+      }
+      const content = existsSync(eventsFile) ? await readFile(eventsFile, "utf8") : "";
+      text(res, 200, content, {
+        "Content-Disposition": "attachment; filename=scent-soul-events.jsonl"
+      });
+      return;
+    }
     if (req.method === "POST" && req.url === "/api/generate") {
       const payload = await readBody(req);
       const result = await llmProfile(payload);
@@ -521,7 +851,13 @@ const server = createServer(async (req, res) => {
         model,
         llm: Boolean(llmApiKey),
         localFallback: true,
-        perfumes: Object.keys(PERFUMES)
+        dataCollection: true,
+        adminProtected: Boolean(adminToken),
+        perfumes: Object.keys(PERFUMES),
+        catalog: {
+          brands: new Set(PERFUME_CATALOG.map((item) => item.brand)).size,
+          perfumes: PERFUME_CATALOG.length
+        }
       });
       return;
     }
