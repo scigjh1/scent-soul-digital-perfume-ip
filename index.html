@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ScentSoul 香水数字灵魂</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <canvas id="scentCanvas" aria-label="香水数字灵魂动态场景"></canvas>
+
+    <main class="shell">
+      <header class="topbar">
+        <div class="brand-block">
+          <div class="brand-mark">SS</div>
+          <div>
+            <p class="eyebrow">香水数字 IP 系统</p>
+            <h1>ScentSoul</h1>
+          </div>
+        </div>
+        <nav class="view-tabs" aria-label="页面导航">
+          <button class="active" type="button" data-view="advisor">AI 顾问推荐</button>
+          <button type="button" data-view="brands">品牌香水库</button>
+          <button type="button" data-view="feedback">反馈调研</button>
+        </nav>
+      </header>
+
+      <section class="workspace" aria-label="ScentSoul perfume soul app">
+        <section id="advisorView" class="app-view active">
+          <div class="advisor-layout">
+            <aside class="left-rail">
+              <div class="scan-box">
+                <div class="qr-grid" aria-hidden="true">
+                  <span></span><span></span><span></span><span></span>
+                  <span></span><span></span><span></span><span></span>
+                  <span></span><span></span><span></span><span></span>
+                  <i></i>
+                </div>
+                <div class="scan-copy">
+                  <strong>瓶身激活</strong>
+                  <span id="bottlePreview">SS-203915</span>
+                </div>
+              </div>
+
+              <div class="activation-steps" aria-label="产品体验流程">
+                <span><b>1</b> 说需求</span>
+                <span><b>2</b> 选香水</span>
+                <span><b>3</b> 生成 IP</span>
+              </div>
+
+              <section class="advisor-card">
+                <div class="ai-console-head">
+                  <div>
+                    <p class="eyebrow">Perfume Consultant</p>
+                    <h3>告诉我需求，直接推荐香水</h3>
+                    <p class="advisor-subtitle">输入场景、气质、预算感或不喜欢的味道，我会给你适合的香水和理由。</p>
+                  </div>
+                  <small id="modelStatus" class="model-status hidden-status">智能推荐</small>
+                </div>
+                <div class="prompt-chips" id="promptChips" aria-label="快速需求">
+                  <button type="button" data-prompt="夏天通勤，干净不甜，有高级感">夏天通勤</button>
+                  <button type="button" data-prompt="约会用，温柔有记忆点，不要太甜腻">约会温柔</button>
+                  <button type="button" data-prompt="送女生礼物，安全、不出错、包装好看">送礼安全</button>
+                  <button type="button" data-prompt="喜欢欧美冷感审美，想要中性、清冷、留香久">欧美冷感</button>
+                </div>
+                <label>
+                  <span>告诉我你想要的感觉</span>
+                  <textarea id="advisorNeed" rows="4" maxlength="180" placeholder="例如：想要适合夏天通勤、干净不甜、有一点高级感的香水"></textarea>
+                </label>
+                <div class="advisor-row">
+                  <select id="advisorOccasion" aria-label="使用场景">
+                    <option value="daily">日常通勤</option>
+                    <option value="date">约会</option>
+                    <option value="gift">送礼</option>
+                    <option value="work">职场</option>
+                    <option value="night">夜晚/派对</option>
+                    <option value="summer">夏天</option>
+                    <option value="winter">秋冬</option>
+                  </select>
+                  <button id="advisorBtn" class="secondary-button" type="button">推荐香水</button>
+                </div>
+                <div id="advisorResults" class="advisor-results"></div>
+              </section>
+
+              <form id="scentForm" class="control-form">
+                <label>
+                  <span>当前选择香水</span>
+                  <select id="perfumeId" name="perfumeId"></select>
+                </label>
+
+                <label>
+                  <span>收藏者昵称</span>
+                  <input id="ownerName" name="ownerName" value="郭珈豪" maxlength="12" />
+                </label>
+
+                <label>
+                  <span>瓶身编号</span>
+                  <div class="inline-control">
+                    <input id="bottleId" name="bottleId" value="SS-203915" maxlength="12" />
+                    <button class="icon-button" type="button" id="randomBottle" title="生成新编号">↻</button>
+                  </div>
+                </label>
+
+                <fieldset>
+                  <legend>今天的气味情绪</legend>
+                  <div class="chip-row" id="moodChips">
+                    <button type="button" data-mood="清透" class="active">清透</button>
+                    <button type="button" data-mood="明亮">明亮</button>
+                    <button type="button" data-mood="潮湿">潮湿</button>
+                    <button type="button" data-mood="温柔">温柔</button>
+                    <button type="button" data-mood="神秘">神秘</button>
+                    <button type="button" data-mood="顽皮">顽皮</button>
+                  </div>
+                </fieldset>
+
+                <button class="primary-button" id="generateBtn" type="submit">
+                  <span>生成专属数字灵魂</span>
+                  <small>动画 / 音乐 / 收藏卡</small>
+                </button>
+              </form>
+            </aside>
+
+            <section class="stage">
+              <div class="stage-top">
+                <div>
+                  <p class="eyebrow">Digital Scent Soul</p>
+                  <h2 id="ipName">河光青芒</h2>
+                  <p id="ipLine">靠近一点，这瓶香气正在醒来。</p>
+                </div>
+                <div class="source-pill" id="sourcePill">LOCAL</div>
+              </div>
+
+              <div class="hero-readout">
+                <div>
+                  <span>香水</span>
+                  <strong id="perfumeName">尼罗河花园</strong>
+                </div>
+                <div>
+                  <span>版本</span>
+                  <strong id="editionName">河光版</strong>
+                </div>
+                <div>
+                  <span>稀有度</span>
+                  <strong id="rarity">Rare</strong>
+                </div>
+                <div>
+                  <span>BPM</span>
+                  <strong id="bpm">94</strong>
+                </div>
+              </div>
+
+              <div class="story-panel">
+                <p id="openingStory">郭珈豪唤醒编号 SS-203915 时，青芒果先从瓶口升起，莲花慢慢铺成它的影子。</p>
+                <p id="ritualStory">它记住了你选择的“清透”，所以这次的动画会更偏向水流，旋律也会留下一个很轻的回声。</p>
+              </div>
+
+              <div class="visual-controls">
+                <button id="musicToggle" class="secondary-button" type="button">
+                  <span id="musicIcon">▶</span>
+                  <span>播放香气音乐</span>
+                </button>
+                <button id="copyCard" class="secondary-button" type="button">
+                  <span>□</span>
+                  <span>复制收藏卡</span>
+                </button>
+                <button id="copyOps" class="secondary-button" type="button">
+                  <span>↗</span>
+                  <span>复制运营方案</span>
+                </button>
+                <button id="savePng" class="secondary-button" type="button">
+                  <span>⬇</span>
+                  <span>保存动态画面</span>
+                </button>
+              </div>
+            </section>
+
+            <aside class="right-rail">
+              <section class="module">
+                <div class="module-title">
+                  <span>香调映射</span>
+                  <small id="familyName">柑橘水生绿意调</small>
+                </div>
+                <div class="note-stack" id="notes"></div>
+                <a id="officialLink" class="mini-link official-link" href="#" target="_blank" rel="noreferrer">查看官方页面</a>
+              </section>
+
+              <section class="module">
+                <div class="module-title">
+                  <span>视觉参数</span>
+                  <small>由模型生成</small>
+                </div>
+                <div class="meter-list">
+                  <label>Flow <meter id="flowMeter" min="0" max="1.8" value="0.8"></meter></label>
+                  <label>Bloom <meter id="bloomMeter" min="0" max="1.5" value="0.6"></meter></label>
+                  <label>Spark <meter id="sparkMeter" min="0" max="1.2" value="0.4"></meter></label>
+                  <label>Density <meter id="densityMeter" min="0" max="1" value="0.7"></meter></label>
+                </div>
+              </section>
+
+              <section class="module">
+                <div class="module-title">
+                  <span>收藏卡</span>
+                  <small id="cardRarity">Rare</small>
+                </div>
+                <div class="soul-card" id="soulCard">
+                  <div class="card-glow"></div>
+                  <p id="shareTitle">尼罗河花园的河光青芒</p>
+                  <strong id="shareSubtitle">一瓶香水，一段只属于你的动态气味记忆。</strong>
+                  <div id="tags" class="tag-list"></div>
+                </div>
+              </section>
+
+              <section class="module ops-module">
+                <div class="module-title">
+                  <span>运营看板</span>
+                  <small>Demo metrics</small>
+                </div>
+                <div class="ops-grid">
+                  <div><b id="scanCount">1,284</b><span>扫码激活</span></div>
+                  <div><b id="shareRate">32%</b><span>分享率</span></div>
+                  <div><b id="unlockRate">18%</b><span>二次唤醒</span></div>
+                  <div><b id="favMood">清透</b><span>偏好情绪</span></div>
+                </div>
+              </section>
+
+            </aside>
+          </div>
+        </section>
+
+        <section id="brandsView" class="app-view">
+          <section class="brands-page">
+            <div class="brand-hero-panel">
+              <div class="brand-page-title">
+                <p class="eyebrow">Brand Library</p>
+                <h2>大牌香水库</h2>
+                <p>把香水选择、品牌浏览、官网跳转和数字 IP 生成分开，让用户先逛品牌，再进入顾问生成。</p>
+              </div>
+
+              <div class="carousel-shell">
+                <button id="carouselPrev" class="carousel-button" type="button" aria-label="上一款">‹</button>
+                <div id="brandCarousel" class="brand-carousel" aria-live="polite"></div>
+                <button id="carouselNext" class="carousel-button" type="button" aria-label="下一款">›</button>
+              </div>
+            </div>
+
+            <div class="brand-library-panel">
+              <div class="module-title">
+                <span>全部品牌</span>
+                <small id="catalogCount">0 款</small>
+              </div>
+              <div class="library-toolbar">
+                <select id="brandFilter" aria-label="筛选品牌"></select>
+                <button id="libraryToAdvisor" class="secondary-button" type="button">去 AI 顾问</button>
+              </div>
+              <div id="brandShelf" class="brand-shelf"></div>
+            </div>
+          </section>
+        </section>
+
+        <section id="feedbackView" class="app-view">
+          <section class="feedback-page">
+            <div class="feedback-hero">
+              <p class="eyebrow">User Research</p>
+              <h2>反馈调研</h2>
+              <p>这一页专门用来收集朋友测试数据，后续可以沉淀成产品运营转化漏斗：访问、推荐、生成、分享、复购兴趣。</p>
+              <div class="feedback-stats">
+                <div><b id="feedbackScanMirror">1,284</b><span>扫码/访问</span></div>
+                <div><b id="feedbackShareMirror">32%</b><span>分享意愿</span></div>
+                <div><b id="feedbackUnlockMirror">18%</b><span>二次唤醒</span></div>
+              </div>
+            </div>
+
+            <section class="feedback-panel">
+              <div class="module-title">
+                <span>体验反馈</span>
+                <small>30 秒调研</small>
+              </div>
+              <form id="feedbackForm" class="feedback-form">
+                <label>
+                  <span>你更像哪类体验者</span>
+                  <select id="feedbackRole">
+                    <option value="perfume-user">香水爱好者</option>
+                    <option value="gift-buyer">送礼/礼盒用户</option>
+                    <option value="content-user">喜欢晒图分享</option>
+                    <option value="product-ops">产品/运营同学</option>
+                    <option value="passerby">普通路人</option>
+                  </select>
+                </label>
+                <label>
+                  <span>体验评分</span>
+                  <select id="feedbackScore">
+                    <option value="5">5 很想分享</option>
+                    <option value="4">4 有记忆点</option>
+                    <option value="3">3 还可以</option>
+                    <option value="2">2 不够清楚</option>
+                    <option value="1">1 不会使用</option>
+                  </select>
+                </label>
+                <fieldset class="reason-field">
+                  <legend>最打动你的点</legend>
+                  <div class="choice-grid" id="feedbackReasons">
+                    <button class="active" type="button" data-reason="visual">动态画面</button>
+                    <button type="button" data-reason="music">香气音乐</button>
+                    <button type="button" data-reason="story">专属故事</button>
+                    <button type="button" data-reason="card">收藏卡</button>
+                    <button type="button" data-reason="none">暂时没有</button>
+                  </div>
+                </fieldset>
+                <label>
+                  <span>是否愿意发给朋友</span>
+                  <select id="feedbackShareIntent">
+                    <option value="yes">愿意分享</option>
+                    <option value="maybe">看香水而定</option>
+                    <option value="no">暂时不会</option>
+                  </select>
+                </label>
+                <label>
+                  <span>是否提升小样/礼盒兴趣</span>
+                  <select id="feedbackPurchaseIntent">
+                    <option value="yes">更想了解</option>
+                    <option value="maybe">需要更多信息</option>
+                    <option value="no">没有变化</option>
+                  </select>
+                </label>
+                <label>
+                  <span>如果真实上线，你会怎么用</span>
+                  <select id="feedbackUseCase">
+                    <option value="self">自己收藏</option>
+                    <option value="share">发到社交平台</option>
+                    <option value="gift">送礼时扫码展示</option>
+                    <option value="brand">想看更多品牌联名</option>
+                    <option value="no-use">暂时不会用</option>
+                  </select>
+                </label>
+                <label class="feedback-wide">
+                  <span>一句反馈</span>
+                  <textarea id="feedbackText" rows="4" maxlength="120" placeholder="哪里打动你，哪里不清楚？"></textarea>
+                </label>
+                <button class="primary-button" type="submit">
+                  <span>提交反馈</span>
+                  <small>写入本地调研数据</small>
+                </button>
+              </form>
+            </section>
+          </section>
+        </section>
+      </section>
+    </main>
+
+    <div class="toast" id="toast">已复制收藏卡</div>
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>
